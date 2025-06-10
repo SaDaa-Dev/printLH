@@ -1,0 +1,79 @@
+# Git 파일
+.git
+.gitignore
+.gitattributes
+
+# Python 관련
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.pytest_cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.cache
+.mypy_cache
+.dmypy.json
+dmypy.json
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE 파일
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS 파일
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Docker 관련
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# 기타 개발 파일
+README.md
+*.md
+build_exe.py
+main.py
+dist/
+build/
+*.spec
+
+# 임시 파일
+temp_uploads/
+temp_processed/
+*.tmp
+*.temp
+
+# 로그 파일
+*.log
+logs/
+
+# 테스트 파일
+test/
+tests/
+*_test.py
+*_tests.py 

@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  photo-resizer:
+    build: .
+    container_name: photo-resizer-app
+    ports:
+      - "5001:5001"
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # 임시 파일 저장용 볼륨 (선택사항)
+      - temp_uploads:/app/temp_uploads
+      - temp_processed:/app/temp_processed
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.photo-resizer.rule=Host(`photo-resizer.localhost`)"
+      - "traefik.http.services.photo-resizer.loadbalancer.server.port=5001"
+    networks:
+      - photo-resizer-network
+
+  # 선택사항: Nginx 리버스 프록시
+  nginx:
+    image: nginx:alpine
+    container_name: photo-resizer-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - photo-resizer
+    restart: unless-stopped
+    networks:
+      - photo-resizer-network
+
+volumes:
+  temp_uploads:
+  temp_processed:
+
+networks:
+  photo-resizer-network:
+    driver: bridge 
