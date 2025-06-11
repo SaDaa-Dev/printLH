@@ -319,6 +319,16 @@ body {
     transform: translateY(-2px);
 }
 
+.btn-success {
+    background: #007bff;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #0056b3;
+    transform: translateY(-2px);
+}
+
 /* 진행 바 */
 .progress-bar {
     width: 100%;
@@ -494,6 +504,62 @@ body {
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+/* 인쇄용 스타일 */
+@media print {
+    body {
+        margin: 0;
+        padding: 0;
+        background: white;
+    }
+    
+    .container {
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 0;
+    }
+    
+    /* 미리보기 이미지만 표시 */
+    .header, .main-content > .section:not(#previewSection), .footer {
+        display: none;
+    }
+    
+    #previewSection {
+        display: block !important;
+        page-break-inside: avoid;
+        margin: 0;
+        padding: 0;
+        background: none;
+        border: none;
+        box-shadow: none;
+    }
+    
+    #previewSection h2 {
+        display: none;
+    }
+    
+    .preview-container {
+        display: block;
+        width: 100%;
+        text-align: center;
+        grid-template-columns: none;
+        gap: 0;
+    }
+    
+    .preview-image {
+        max-width: 100%;
+        max-height: 100vh;
+        height: auto;
+        width: auto;
+        display: block;
+        margin: 0 auto;
+    }
+    
+    .preview-info, .preview-actions {
+        display: none;
     }
 }
 

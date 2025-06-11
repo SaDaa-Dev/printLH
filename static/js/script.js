@@ -10,6 +10,7 @@ const previewSection = document.getElementById('previewSection');
 const previewImage = document.getElementById('previewImage');
 const previewInfo = document.getElementById('previewInfo');
 const downloadButton = document.getElementById('downloadButton');
+const printButton = document.getElementById('printButton');
 const resetButton = document.getElementById('resetButton');
 const progressSection = document.getElementById('progressSection');
 const progressFill = document.getElementById('progressFill');
@@ -19,11 +20,13 @@ const progressText = document.getElementById('progressText');
 let selectedFiles = [];
 let currentFileId = null;
 let currentPhotoType = 'construction';
+let currentPaperOrientation = 'portrait';
 
 // 초기화
 document.addEventListener('DOMContentLoaded', function() {
     initializeEventListeners();
     updatePhotoTypeSelection();
+    updatePaperOrientationSelection();
 });
 
 function initializeEventListeners() {
@@ -53,6 +56,12 @@ function initializeEventListeners() {
         radio.addEventListener('change', updatePhotoTypeSelection);
     });
 
+    // 용지 방향 선택
+    const orientationButtons = document.querySelectorAll('input[name="paper_orientation"]');
+    orientationButtons.forEach(radio => {
+        radio.addEventListener('change', updatePaperOrientationSelection);
+    });
+
     // 처리 버튼
     processButton.addEventListener('click', handleProcess);
 
@@ -62,6 +71,9 @@ function initializeEventListeners() {
     // 다운로드 버튼
     downloadButton.addEventListener('click', handleDownload);
 
+    // 인쇄 버튼
+    printButton.addEventListener('click', handlePrint);
+
     // 리셋 버튼
     resetButton.addEventListener('click', handleReset);
 }
@@ -70,6 +82,12 @@ function updatePhotoTypeSelection() {
     const selectedRadio = document.querySelector('input[name="photo_type"]:checked');
     currentPhotoType = selectedRadio.value;
     console.log('사진 종류 선택됨:', currentPhotoType);
+}
+
+function updatePaperOrientationSelection() {
+    const selectedRadio = document.querySelector('input[name="paper_orientation"]:checked');
+    currentPaperOrientation = selectedRadio.value;
+    console.log('용지 방향 선택됨:', currentPaperOrientation);
 }
 
 function handleFileSelect(event) {
@@ -197,6 +215,7 @@ function handleProcess() {
         formData.append(`files`, file);
     });
     formData.append('photo_type', currentPhotoType);
+    formData.append('paper_orientation', currentPaperOrientation);
 
     // 업로드 요청
     fetch('/upload_multiple', {
@@ -240,12 +259,13 @@ function handleUploadSuccess(data) {
     // 정보 텍스트 설정
     const photoTypeText = data.photo_type === 'construction' ? '시공사진' : '대문사진';
     const fileCountText = data.file_count ? `${data.file_count}장` : '1장';
+    const orientationText = data.paper_orientation === 'landscape' ? '가로 (29.7cm × 21cm)' : '세로 (21cm × 29.7cm)';
     
     previewInfo.innerHTML = `
         <p><strong>처리된 파일:</strong> ${fileCountText}</p>
         <p><strong>사진 종류:</strong> ${photoTypeText}</p>
+        <p><strong>용지 방향:</strong> ${orientationText}</p>
         <p><strong>A4 용지 배치:</strong> 최적 배치 완료</p>
-        <p><strong>용지 크기:</strong> A4 (21cm × 29.7cm)</p>
         <p><strong>인쇄 품질:</strong> 300 DPI</p>
     `;
     
@@ -281,6 +301,20 @@ function handleDownload() {
     document.body.removeChild(link);
     
     showSuccess('파일 다운로드가 시작되었습니다!');
+}
+
+function handlePrint() {
+    if (!currentFileId) {
+        showError('인쇄할 파일이 없습니다.');
+        return;
+    }
+
+    // 인쇄 확인
+    if (confirm('이미지를 인쇄하시겠습니까?\n\n인쇄 설정:\n- 용지 크기: A4\n- 여백: 없음\n- 크기 조정: 실제 크기')) {
+        // 브라우저 인쇄 대화상자 열기
+        window.print();
+        showSuccess('인쇄 대화상자가 열렸습니다!');
+    }
 }
 
 function handleReset() {

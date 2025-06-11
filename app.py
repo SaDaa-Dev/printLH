@@ -271,6 +271,7 @@ def upload_multiple_files():
     
     files = request.files.getlist('files')
     photo_type = request.form.get('photo_type', 'construction')
+    paper_orientation = request.form.get('paper_orientation', 'portrait')
     
     if not files or len(files) == 0:
         return jsonify({'error': '파일이 선택되지 않았습니다'}), 400
@@ -305,12 +306,14 @@ def upload_multiple_files():
         
         # A4 용지에 여러 이미지 배치
         if photo_type == 'construction':
-            final_image = arrange_multiple_construction_photos(processed_images)
+            final_image = arrange_multiple_construction_photos(processed_images, paper_orientation)
         else:  # document
-            final_image = arrange_multiple_document_photos(processed_images)
+            final_image = arrange_multiple_document_photos(processed_images, paper_orientation)
         
         # 최종 이미지 저장
-        processed_filename = f"{batch_id}_layout.jpg"
+        orientation_suffix = 'landscape' if paper_orientation == 'landscape' else 'portrait'
+        type_suffix = 'construction' if photo_type == 'construction' else 'document'
+        processed_filename = f"{batch_id}_{type_suffix}_{orientation_suffix}_layout.jpg"
         processed_path = os.path.join(app.config['PROCESSED_FOLDER'], processed_filename)
         final_image.save(processed_path, 'JPEG', quality=95)
         
@@ -326,6 +329,7 @@ def upload_multiple_files():
             'file_id': batch_id,
             'file_count': len(processed_images),
             'photo_type': photo_type,
+            'paper_orientation': paper_orientation,
             'thumbnail_url': f'/thumbnail/{batch_id}'
         })
         
@@ -343,7 +347,31 @@ def get_thumbnail(file_id):
 @app.route('/download/<file_id>')
 def download_file(file_id):
     """처리된 이미지 다운로드"""
-    processed_path = os.path.join(app.config['PROCESSED_FOLDER'], f"{file_id}_processed.jpg")
+    # 새로운 형식의 파일명을 먼저 찾아보기
+    processed_folder = app.config['PROCESSED_FOLDER']
+    
+    # 새로운 형식: {id}_{type}_{orientation}_layout.jpg
+    for filename in os.listdir(processed_folder):
+        if filename.startswith(file_id) and filename.endswith('_layout.jpg'):
+            processed_path = os.path.join(processed_folder, filename)
+            # 파일명에서 정보 추출하여 다운로드명 생성
+            parts = filename.replace('.jpg', '').split('_')
+            if len(parts) >= 3:
+                type_name = '시공사진' if parts[1] == 'construction' else '대문사진'
+                orientation_name = '가로' if parts[2] == 'landscape' else '세로'
+                download_name = f"A4_{type_name}_{orientation_name}_{file_id}.jpg"
+            else:
+                download_name = f"resized_photo_{file_id}.jpg"
+            
+            return send_file(
+                processed_path,
+                as_attachment=True,
+                download_name=download_name,
+                mimetype='image/jpeg'
+            )
+    
+    # 기존 형식 fallback
+    processed_path = os.path.join(processed_folder, f"{file_id}_processed.jpg")
     if os.path.exists(processed_path):
         return send_file(
             processed_path,
@@ -351,6 +379,7 @@ def download_file(file_id):
             download_name=f"resized_photo_{file_id}.jpg",
             mimetype='image/jpeg'
         )
+    
     return '', 404
 
 @app.route('/health')
@@ -358,14 +387,20 @@ def health_check():
     """헬스 체크"""
     return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()})
 
-def arrange_multiple_construction_photos(image_data_list):
+def arrange_multiple_construction_photos(image_data_list, paper_orientation='portrait'):
     """여러 시공사진을 A4 용지에 최적 배치"""
     # 시공사진 크기 (9cm × 11cm, 300 DPI 기준)
     photo_width = int(90 * 300 / 25.4)   # 약 1063픽셀
     photo_height = int(110 * 300 / 25.4)  # 약 1299픽셀
     
+    # 용지 방향에 따른 A4 크기 설정
+    if paper_orientation == 'landscape':
+        a4_width, a4_height = A4_HEIGHT, A4_WIDTH  # 가로: 3508 x 2480
+    else:
+        a4_width, a4_height = A4_WIDTH, A4_HEIGHT  # 세로: 2480 x 3508
+    
     # 최적 배치 계산
-    layout = calculate_optimal_layout(photo_width, photo_height, A4_WIDTH, A4_HEIGHT)
+    layout = calculate_optimal_layout(photo_width, photo_height, a4_width, a4_height)
     
     # A4 용지에 배치할 수 있는 최대 개수
     max_photos = layout['cols'] * layout['rows']
@@ -412,12 +447,12 @@ def arrange_multiple_construction_photos(image_data_list):
         resized_photos.append(resized_photo)
     
     # A4 용지에 배치
-    a4_image = Image.new('RGB', (A4_WIDTH, A4_HEIGHT), 'white')
+    a4_image = Image.new('RGB', (a4_width, a4_height), 'white')
     
     # 배치 계산
     margin = 50
-    x_spacing = (A4_WIDTH - 2 * margin - layout['cols'] * layout['photo_width']) // max(1, layout['cols'] - 1) if layout['cols'] > 1 else 0
-    y_spacing = (A4_HEIGHT - 2 * margin - layout['rows'] * layout['photo_height']) // max(1, layout['rows'] - 1) if layout['rows'] > 1 else 0
+    x_spacing = (a4_width - 2 * margin - layout['cols'] * layout['photo_width']) // max(1, layout['cols'] - 1) if layout['cols'] > 1 else 0
+    y_spacing = (a4_height - 2 * margin - layout['rows'] * layout['photo_height']) // max(1, layout['rows'] - 1) if layout['rows'] > 1 else 0
     
     photo_index = 0
     for row in range(layout['rows']):
@@ -430,14 +465,20 @@ def arrange_multiple_construction_photos(image_data_list):
     
     return a4_image
 
-def arrange_multiple_document_photos(image_data_list):
+def arrange_multiple_document_photos(image_data_list, paper_orientation='portrait'):
     """여러 대문사진을 A4 용지에 최적 배치"""
     # 대문사진 크기 (11.4cm × 15.2cm, 300 DPI 기준)
     photo_width = int(114 * 300 / 25.4)   # 약 1346픽셀
     photo_height = int(152 * 300 / 25.4)  # 약 1795픽셀
     
+    # 용지 방향에 따른 A4 크기 설정
+    if paper_orientation == 'landscape':
+        a4_width, a4_height = A4_HEIGHT, A4_WIDTH  # 가로: 3508 x 2480
+    else:
+        a4_width, a4_height = A4_WIDTH, A4_HEIGHT  # 세로: 2480 x 3508
+    
     # 최적 배치 계산
-    layout = calculate_optimal_layout(photo_width, photo_height, A4_WIDTH, A4_HEIGHT)
+    layout = calculate_optimal_layout(photo_width, photo_height, a4_width, a4_height)
     
     # A4 용지에 배치할 수 있는 최대 개수
     max_photos = layout['cols'] * layout['rows']
