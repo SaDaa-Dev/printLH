@@ -15,29 +15,6 @@
         </header>
 
         <main class="main-content">
-            <!-- 사진 종류 선택 -->
-            <section class="section">
-                <h2>📋 사진 종류 선택</h2>
-                <div class="radio-group">
-                    <label class="radio-option">
-                        <input type="radio" name="photo_type" value="construction" checked>
-                        <span class="radio-custom"></span>
-                        <div class="radio-content">
-                            <strong>시공사진</strong>
-                            <small>가로 9cm × 세로 11cm (A4에 최대 4장 배치)</small>
-                        </div>
-                    </label>
-                    <label class="radio-option">
-                        <input type="radio" name="photo_type" value="document">
-                        <span class="radio-custom"></span>
-                        <div class="radio-content">
-                            <strong>대문사진</strong>
-                            <small>가로 11.4cm × 세로 15.2cm (A4에 최대 2장 배치)</small>
-                        </div>
-                    </label>
-                </div>
-            </section>
-
             <!-- 용지 방향 선택 -->
             <section class="section">
                 <h2>📄 용지 방향 선택</h2>
@@ -61,30 +38,47 @@
                 </div>
             </section>
 
-            <!-- 파일 업로드 -->
-            <section class="section">
-                <h2>📁 파일 업로드</h2>
-                <div class="upload-area" id="uploadArea">
-                    <div class="upload-content">
-                        <div class="upload-icon">📷</div>
-                        <p class="upload-text">사진 파일들을 드래그하거나 클릭하여 선택하세요</p>
-                        <p class="upload-hint">지원 형식: JPG, PNG, BMP, GIF, TIFF (각 파일 최대 16MB)</p>
-                        <p class="upload-hint"><strong>여러 장 선택 가능</strong> - 선택한 종류에 따라 한 A4에 최적 배치됩니다</p>
-                        <input type="file" id="fileInput" accept="image/*" multiple style="display: none;">
-                        <button class="upload-button" id="uploadButton">파일 선택 (여러 장 가능)</button>
+            <!-- 파일 업로드 (혼합 배치) -->
+            <section class="section" id="mixedUploadSection">
+                <h2>📁 사진 업로드</h2>
+                <p style="text-align: center; color: #666; margin-bottom: 20px;">
+                    시공사진과 대문사진을 A4 용지에 최적으로 배치해드립니다
+                </p>
+                <div class="mixed-upload-container">
+                    <div class="mixed-upload-column">
+                        <h3>🏗️ 시공사진 (9cm × 11cm)</h3>
+                        <p style="font-size: 14px; color: #666; margin-bottom: 10px;">최대 6장까지 배치 가능</p>
+                        <div class="upload-area" id="constructionUploadArea">
+                            <div class="upload-content">
+                                <div class="upload-icon">🏗️</div>
+                                <p class="upload-text">시공사진을 선택하세요</p>
+                                <input type="file" id="constructionFileInput" accept="image/*" multiple style="display: none;">
+                                <button class="upload-button" id="constructionUploadButton">시공사진 선택</button>
+                            </div>
+                        </div>
+                        <div id="constructionFilesList" class="selected-files-grid"></div>
+                    </div>
+                    
+                    <div class="mixed-upload-column">
+                        <h3>📄 대문사진 (11.4cm × 15.2cm)</h3>
+                        <p style="font-size: 14px; color: #666; margin-bottom: 10px;">최대 2장까지 배치 가능</p>
+                        <div class="upload-area" id="documentUploadArea">
+                            <div class="upload-content">
+                                <div class="upload-icon">📄</div>
+                                <p class="upload-text">대문사진을 선택하세요</p>
+                                <input type="file" id="documentFileInput" accept="image/*" multiple style="display: none;">
+                                <button class="upload-button" id="documentUploadButton">대문사진 선택</button>
+                            </div>
+                        </div>
+                        <div id="documentFilesList" class="selected-files-grid"></div>
                     </div>
                 </div>
-            </section>
-
-            <!-- 선택된 파일들 -->
-            <section class="section" id="selectedFilesSection" style="display: none;">
-                <h2>📋 선택된 파일들</h2>
-                <div id="selectedFilesList" class="selected-files-grid"></div>
-                <div class="file-actions">
-                    <button class="btn btn-primary" id="processButton">
-                        🔄 A4 용지에 배치하기
+                
+                <div class="mixed-actions" style="text-align: center; margin-top: 20px;">
+                    <button class="btn btn-primary" id="processMixedButton" style="display: none;">
+                        🎯 최적화 배치하기
                     </button>
-                    <button class="btn btn-secondary" id="clearButton">
+                    <button class="btn btn-secondary" id="clearMixedButton">
                         🗑️ 모두 지우기
                     </button>
                 </div>
@@ -128,29 +122,29 @@
                     <div class="info-item">
                         <div class="info-icon">1️⃣</div>
                         <div class="info-content">
-                            <h3>사진 종류 선택</h3>
-                            <p>일반사진 또는 증명사진 중 선택하세요</p>
+                            <h3>용지 방향 선택</h3>
+                            <p>세로(포트레이트) 또는 가로(랜드스케이프) 중 선택하세요</p>
                         </div>
                     </div>
                     <div class="info-item">
                         <div class="info-icon">2️⃣</div>
                         <div class="info-content">
-                            <h3>파일 업로드</h3>
-                            <p>사진 파일을 드래그하거나 선택하세요</p>
+                            <h3>사진 업로드</h3>
+                            <p>시공사진과 대문사진을 각각 선택하세요 (한 쪽만 선택해도 됩니다)</p>
                         </div>
                     </div>
                     <div class="info-item">
                         <div class="info-icon">3️⃣</div>
                         <div class="info-content">
-                            <h3>자동 처리</h3>
-                            <p>A4 크기에 맞게 자동으로 리사이징됩니다</p>
+                            <h3>자동 최적화</h3>
+                            <p>A4 용지에 최대한 많은 사진을 효율적으로 배치합니다</p>
                         </div>
                     </div>
                     <div class="info-item">
                         <div class="info-icon">4️⃣</div>
                         <div class="info-content">
-                            <h3>다운로드</h3>
-                            <p>처리된 이미지를 다운로드하여 프린트하세요</p>
+                            <h3>다운로드 & 인쇄</h3>
+                            <p>처리된 이미지를 다운로드하거나 바로 인쇄하세요</p>
                         </div>
                     </div>
                 </div>
