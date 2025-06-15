@@ -86,23 +86,96 @@
 
             <!-- 미리보기 -->
             <section class="section" id="previewSection" style="display: none;">
-                <h2>👀 A4 배치 미리보기</h2>
+                <h2>📄 레이아웃 미리보기</h2>
+                
+                <!-- 페이지 네비게이션 -->
+                <div class="page-navigation" id="pageNavigation" style="display: none;">
+                    <button class="nav-btn" id="prevPageBtn" onclick="goToPreviousPage()" disabled>
+                        &#8249; 이전
+                    </button>
+                    <div class="page-info">
+                        <span id="currentPageNumber">1</span> / <span id="totalPagesNumber">1</span>
+                    </div>
+                    <button class="nav-btn" id="nextPageBtn" onclick="goToNextPage()">
+                        다음 &#8250;
+                    </button>
+                </div>
+                
+                <!-- 미리보기 이미지 -->
                 <div class="preview-container">
-                    <img id="previewImage" alt="A4 배치 미리보기" class="preview-image">
-                    <div class="preview-info">
-                        <p id="previewInfo"></p>
-                        <div class="preview-actions">
-                            <button class="btn btn-primary" id="downloadButton">
-                                💾 다운로드
-                            </button>
-                            <button class="btn btn-success" id="printButton">
-                                🖨️ 인쇄하기
-                            </button>
-                            <button class="btn btn-secondary" id="resetButton">
-                                🔄 다시 선택
-                            </button>
+                    <img id="previewImage" alt="미리보기" class="preview-image">
+                </div>
+
+                <!-- 통계 카드 -->
+                <div class="stats-container">
+                    <div class="stat-card">
+                        <div class="stat-icon">📷</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="totalPhotosValue">0</div>
+                            <div class="stat-label">총 사진</div>
                         </div>
                     </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🏗️</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="constructionCountValue">0</div>
+                            <div class="stat-label">시공사진</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📄</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="documentCountValue">0</div>
+                            <div class="stat-label">대문사진</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⚡</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="efficiencyValue">0%</div>
+                            <div class="stat-label">공간 효율성</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 상세 정보 테이블 -->
+                <div class="info-table">
+                    <h3>📋 상세 정보</h3>
+                    <table>
+                        <tr>
+                            <td class="info-label">📏 용지 크기</td>
+                            <td class="info-value" id="paperSizeValue">-</td>
+                        </tr>
+                        <tr>
+                            <td class="info-label">📐 방향</td>
+                            <td class="info-value" id="orientationValue">-</td>
+                        </tr>
+                        <tr>
+                            <td class="info-label">📋 총 페이지</td>
+                            <td class="info-value" id="pagesValue">-</td>
+                        </tr>
+                        <tr>
+                            <td class="info-label">🖨️ 인쇄 품질</td>
+                            <td class="info-value" id="qualityValue">-</td>
+                        </tr>
+                        <tr>
+                            <td class="info-label">📁 파일 ID</td>
+                            <td class="info-value" id="layoutFilename">-</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- 경고 메시지 -->
+                <div class="warning-message" id="placementWarning" style="display: none;"></div>
+
+                <!-- 액션 버튼 -->
+                <div class="actions">
+                    <button class="btn btn-primary" id="printButton" onclick="handlePrint()">
+                        🖨️ 인쇄하기
+                    </button>
+                    <button class="btn btn-secondary" onclick="handleReset()">
+                        🔄 다시 시작
+                    </button>
                 </div>
             </section>
 

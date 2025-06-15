@@ -508,18 +508,8 @@ def arrange_construction_photos_landscape(image_data_list, a4_width, a4_height):
         
         pages.append(a4_image)
     
-    # 여러 페이지가 있으면 세로로 연결
-    if len(pages) == 1:
-        return pages[0]
-    else:
-        # 다중 페이지를 세로로 연결
-        total_height = a4_height * len(pages)
-        combined_image = Image.new('RGB', (a4_width, total_height), 'white')
-        
-        for i, page in enumerate(pages):
-            combined_image.paste(page, (0, i * a4_height))
-        
-        return combined_image
+    # 개별 페이지 리스트 반환 (다중 페이지 지원)
+    return pages
 
 def arrange_construction_photos_portrait(image_data_list, a4_width, a4_height):
     """세로 A4에서 시공사진 배치: 2x2 = 4장 per page"""
@@ -564,18 +554,8 @@ def arrange_construction_photos_portrait(image_data_list, a4_width, a4_height):
         
         pages.append(a4_image)
     
-    # 여러 페이지가 있으면 세로로 연결
-    if len(pages) == 1:
-        return pages[0]
-    else:
-        # 다중 페이지를 세로로 연결
-        total_height = a4_height * len(pages)
-        combined_image = Image.new('RGB', (a4_width, total_height), 'white')
-        
-        for i, page in enumerate(pages):
-            combined_image.paste(page, (0, i * a4_height))
-        
-        return combined_image
+    # 개별 페이지 리스트 반환 (다중 페이지 지원)
+    return pages
 
 def arrange_multiple_construction_photos(image_data_list, paper_orientation='portrait'):
     """여러 시공사진을 A4 용지에 최적 배치"""
@@ -653,21 +633,11 @@ def arrange_multiple_document_photos(image_data_list, paper_orientation='portrai
         
         pages.append(a4_image)
     
-    # 여러 페이지가 있으면 세로로 연결
-    if len(pages) == 1:
-        return pages[0]
-    else:
-        # 다중 페이지를 세로로 연결
-        total_height = a4_height * len(pages)
-        combined_image = Image.new('RGB', (a4_width, total_height), 'white')
-        
-        for i, page in enumerate(pages):
-            combined_image.paste(page, (0, i * a4_height))
-        
-        return combined_image
+    # 개별 페이지 리스트 반환 (다중 페이지 지원)
+    return pages
 
 def create_optimized_mixed_layout(construction_images, document_images, paper_orientation='portrait'):
-    """메모리 효율적인 혼합 배치로 A4 레이아웃 생성"""
+    """모든 사진을 다중 페이지로 배치하는 함수"""
     if paper_orientation == 'landscape':
         a4_width, a4_height = A4_LANDSCAPE_SIZE
     else:
@@ -676,116 +646,77 @@ def create_optimized_mixed_layout(construction_images, document_images, paper_or
     construction_count = len(construction_images)
     document_count = len(document_images)
     
-    # 간단한 배치 전략 선택 (메모리 효율적)
     if construction_count == 0 and document_count == 0:
-        return None, "배치할 사진이 없습니다."
-    
-    # 단순한 배치 전략: 각 종류별로 최대 배치 수 계산
-    construction_px = (cm_to_px(CONSTRUCTION_CM[0]), cm_to_px(CONSTRUCTION_CM[1]))
-    document_px = (cm_to_px(DOCUMENT_CM[0]), cm_to_px(DOCUMENT_CM[1]))
-    
-    # 한 장씩 처리하여 메모리 사용량 최소화
-    page_img = Image.new('RGB', (a4_width, a4_height), 'white')
+        return None, "배치할 사진이 없습니다.", 0, 0, []
     
     try:
-        # 간단한 혼합 전략: 위쪽에 대문사진, 아래쪽에 시공사진
-        current_y = MARGIN_PX
-        placed_construction = 0
-        placed_document = 0
+        all_pages = []
+        total_construction_placed = 0
+        total_document_placed = 0
         
-        # 대문사진부터 배치 (더 큰 사진)
+        # 이미지 데이터를 파일 객체로 변환
+        construction_image_objects = []
+        for img_data in construction_images:
+            image = Image.open(io.BytesIO(img_data))
+            construction_image_objects.append({'image': image})
+        
+        document_image_objects = []
+        for img_data in document_images:
+            image = Image.open(io.BytesIO(img_data))
+            document_image_objects.append({'image': image})
+        
+        # 대문사진 페이지들 생성 (페이지당 2장)
         if document_count > 0:
-            doc_width = min(document_px)
-            doc_height = max(document_px)
-            
-            # A4 너비에 들어갈 수 있는 대문사진 개수
-            docs_per_row = (a4_width - 2 * MARGIN_PX) // (doc_width + MARGIN_PX)
-            docs_per_row = max(1, docs_per_row)
-            
-            # 최대 2개의 대문사진만 배치 (메모리 절약)
-            max_docs = min(document_count, 2)
-            
-            for i in range(max_docs):
-                if i >= docs_per_row:
-                    break
-                    
-                image = Image.open(io.BytesIO(document_images[i]))
-                resized_img = resize_maintain_aspect_ratio(image, doc_width, doc_height)
-                
-                x = MARGIN_PX + i * (doc_width + MARGIN_PX)
-                page_img.paste(resized_img, (x, current_y))
-                placed_document += 1
-                
-                # 메모리 정리
-                image.close()
-                del image
-            
-            current_y += doc_height + MARGIN_PX
+            document_pages = arrange_multiple_document_photos(document_image_objects, paper_orientation)
+            all_pages.extend(document_pages)
+            total_document_placed = document_count
+            print(f"대문사진 페이지 생성 완료: {len(document_pages)}페이지, {total_document_placed}장 배치")
         
-        # 남은 공간에 시공사진 배치
+        # 시공사진 페이지들 생성 (세로: 4장/페이지, 가로: 5장/페이지)
         if construction_count > 0:
-            const_width = min(construction_px)
-            const_height = max(construction_px)
-            
-            remaining_height = a4_height - current_y - MARGIN_PX
-            
-            if remaining_height > const_height:
-                # 시공사진 배치
-                consts_per_row = (a4_width - 2 * MARGIN_PX) // (const_width + MARGIN_PX)
-                const_rows = remaining_height // (const_height + MARGIN_PX)
-                
-                max_consts = min(construction_count, consts_per_row * const_rows)
-                max_consts = min(max_consts, 6)  # 최대 6장으로 제한 (메모리 절약)
-                
-                for i in range(max_consts):
-                    row = i // consts_per_row
-                    col = i % consts_per_row
-                    
-                    image = Image.open(io.BytesIO(construction_images[i]))
-                    resized_img = resize_maintain_aspect_ratio(image, const_width, const_height)
-                    
-                    x = MARGIN_PX + col * (const_width + MARGIN_PX)
-                    y = current_y + row * (const_height + MARGIN_PX)
-                    
-                    page_img.paste(resized_img, (x, y))
-                    placed_construction += 1
-                    
-                    # 메모리 정리
-                    image.close()
-                    del image
+            construction_pages = arrange_multiple_construction_photos(construction_image_objects, paper_orientation)
+            all_pages.extend(construction_pages)
+            total_construction_placed = construction_count
+            print(f"시공사진 페이지 생성 완료: {len(construction_pages)}페이지, {total_construction_placed}장 배치")
         
-        total_placed = placed_construction + placed_document
-        message = f"혼합 배치 완료! 총 {total_placed}장 (시공사진: {placed_construction}장, 대문사진: {placed_document}장)"
+        # 메모리 정리
+        for img_obj in construction_image_objects:
+            img_obj['image'].close()
+        for img_obj in document_image_objects:
+            img_obj['image'].close()
         
-        return page_img, message
+        total_placed = total_construction_placed + total_document_placed
+        total_pages = len(all_pages)
+        
+        message = f"다중 페이지 배치 완료! 총 {total_pages}페이지에 {total_placed}장 배치 (시공사진: {total_construction_placed}장, 대문사진: {total_document_placed}장)"
+        
+        print(f"최종 배치 결과: 총 {total_pages}페이지, {total_placed}장 (시공사진: {total_construction_placed}장, 대문사진: {total_document_placed}장)")
+        
+        return all_pages, message, total_construction_placed, total_document_placed, total_pages
         
     except Exception as e:
-        print(f"혼합 배치 오류: {str(e)}")
-        return None, f"배치 중 오류가 발생했습니다: {str(e)}"
+        print(f"다중 페이지 배치 오류: {str(e)}")
+        return None, f"배치 중 오류가 발생했습니다: {str(e)}", 0, 0, 0
 
 # 복잡한 배치 함수들도 메모리 절약을 위해 제거됨
 
 # 새로운 최적화 혼합 배치 엔드포인트
 @app.route('/upload_optimized', methods=['POST'])
 def upload_optimized_files():
-    """두 종류 사진을 최적화해서 혼합 배치하는 엔드포인트 (메모리 효율적)"""
+    """두 종류 사진을 최적화해서 다중 페이지 배치하는 엔드포인트"""
     try:
         construction_files = request.files.getlist('construction_files')
         document_files = request.files.getlist('document_files')
         paper_orientation = request.form.get('paper_orientation', 'portrait')
         
-        print(f"혼합 배치 요청: 시공사진 {len(construction_files)}장, 대문사진 {len(document_files)}장")
+        print(f"다중 페이지 배치 요청: 시공사진 {len(construction_files)}장, 대문사진 {len(document_files)}장")
         
         # 파일 유효성 검사 및 메모리 효율적 처리
         construction_images = []
         document_images = []
         
-        # 최대 파일 개수 제한 (메모리 절약)
-        max_construction = min(len(construction_files), 6)
-        max_document = min(len(document_files), 2)
-        
-        # 시공사진 처리
-        for i, file in enumerate(construction_files[:max_construction]):
+        # 시공사진 처리 (제한 없이 모두 처리)
+        for i, file in enumerate(construction_files):
             if file and file.filename != '' and allowed_file(file.filename):
                 try:
                     file_data = file.read()
@@ -798,8 +729,8 @@ def upload_optimized_files():
                     print(f"시공사진 읽기 오류: {str(e)}")
                     continue
         
-        # 대문사진 처리
-        for i, file in enumerate(document_files[:max_document]):
+        # 대문사진 처리 (제한 없이 모두 처리)
+        for i, file in enumerate(document_files):
             if file and file.filename != '' and allowed_file(file.filename):
                 try:
                     file_data = file.read()
@@ -817,53 +748,71 @@ def upload_optimized_files():
         
         print(f"처리할 이미지: 시공사진 {len(construction_images)}장, 대문사진 {len(document_images)}장")
         
-        # 최적화된 혼합 배치 생성
-        result_image, message = create_optimized_mixed_layout(construction_images, document_images, paper_orientation)
+        # 다중 페이지 배치 생성
+        result = create_optimized_mixed_layout(construction_images, document_images, paper_orientation)
         
-        if result_image is None:
-            return jsonify({'error': message}), 400
+        if result[0] is None:  # 오류 케이스
+            return jsonify({'error': result[1]}), 400
         
-        # 이미지를 메모리에 저장
-        img_buffer = io.BytesIO()
-        result_image.save(img_buffer, format='PNG', dpi=(300, 300))
-        img_buffer.seek(0)
+        result_pages, message, actual_construction_count, actual_document_count, total_pages = result
         
-        # 고유한 파일명 생성
-        file_id = str(uuid.uuid4())
-        filename = f"mixed_layout_{paper_orientation}_{file_id}.png"
+        # 고유한 배치 ID 생성
+        layout_id = str(uuid.uuid4())
         
-        # 파일 저장 (static/outputs 폴더에 저장)
+        # outputs 폴더 생성
         outputs_folder = 'static/outputs'
         os.makedirs(outputs_folder, exist_ok=True)
-        file_path = os.path.join(outputs_folder, filename)
-        with open(file_path, 'wb') as f:
-            f.write(img_buffer.getvalue())
+        
+        # 각 페이지를 개별 파일로 저장
+        page_filenames = []
+        for i, page_img in enumerate(result_pages):
+            # 이미지를 메모리에 저장
+            img_buffer = io.BytesIO()
+            page_img.save(img_buffer, format='PNG', dpi=(300, 300))
+            img_buffer.seek(0)
+            
+            # 페이지별 파일명 생성
+            filename = f"mixed_layout_{paper_orientation}_{layout_id}_page_{i+1}.png"
+            page_filenames.append(filename)
+            
+            # 파일 저장
+            file_path = os.path.join(outputs_folder, filename)
+            with open(file_path, 'wb') as f:
+                f.write(img_buffer.getvalue())
+            
+            # 메모리 정리
+            img_buffer.close()
+            page_img.close()
         
         # 메모리 정리
-        img_buffer.close()
-        result_image.close()
         del construction_images
         del document_images
         
-        # 파일 정보 저장
-        file_info = {
-            'file_id': file_id,
-            'filename': filename,
-            'filepath': file_path,
+        # 배치 정보 저장
+        layout_info = {
+            'layout_id': layout_id,
+            'page_filenames': page_filenames,
+            'total_pages': total_pages,
+            'construction_count': actual_construction_count,
+            'document_count': actual_document_count,
+            'paper_orientation': paper_orientation,
             'upload_time': time.time(),
-            'original_name': filename
+            'message': message
         }
-        uploaded_files[file_id] = file_info
+        uploaded_files[layout_id] = layout_info
         
-        print(f"혼합 배치 성공: {filename}")
+        print(f"다중 페이지 배치 성공: {total_pages}페이지 생성")
         
         return jsonify({
             'success': True,
             'message': message,
-            'file_id': file_id,
-            'filename': filename,
-            'construction_count': len(construction_images) if 'construction_images' in locals() else 0,
-            'document_count': len(document_images) if 'document_images' in locals() else 0,
+            'layout_id': layout_id,
+            'page_filenames': page_filenames,
+            'total_pages': total_pages,
+            'construction_count': actual_construction_count,
+            'document_count': actual_document_count,
+            'uploaded_construction': len(construction_files),
+            'uploaded_document': len(document_files),
             'paper_orientation': paper_orientation
         })
         
@@ -871,7 +820,7 @@ def upload_optimized_files():
         print("메모리 부족 오류 발생")
         return jsonify({'error': '메모리가 부족합니다. 더 적은 수의 사진으로 시도해주세요.'}), 500
     except Exception as e:
-        print(f"혼합 배치 오류: {str(e)}")
+        print(f"다중 페이지 배치 오류: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': f'레이아웃 생성 중 오류가 발생했습니다: {str(e)}'}), 500

@@ -1,10 +1,7 @@
 // DOM 요소들
 const previewSection = document.getElementById('previewSection');
 const previewImage = document.getElementById('previewImage');
-const previewInfo = document.getElementById('previewInfo');
-const downloadButton = document.getElementById('downloadButton');
 const printButton = document.getElementById('printButton');
-const resetButton = document.getElementById('resetButton');
 const progressSection = document.getElementById('progressSection');
 const progressFill = document.getElementById('progressFill');
 const progressText = document.getElementById('progressText');
@@ -22,13 +19,14 @@ const documentFilesList = document.getElementById('documentFilesList');
 const processMixedButton = document.getElementById('processMixedButton');
 const clearMixedButton = document.getElementById('clearMixedButton');
 
-// 현재 파일 정보
-let currentFileId = null;
-let currentPaperOrientation = 'portrait';
-
-// 혼합 배치용 파일 정보
+// 전역 변수들
+let selectedFiles = [];
 let constructionFiles = [];
 let documentFiles = [];
+let currentPaperOrientation = 'portrait';
+let currentFileId = null;
+let currentLayoutData = null; // 다중 페이지 데이터
+let currentPageIndex = 0; // 현재 페이지 번호 (0부터 시작)
 
 // 초기화
 document.addEventListener('DOMContentLoaded', function() {
@@ -43,22 +41,25 @@ function initializeEventListeners() {
         radio.addEventListener('change', updatePaperOrientationSelection);
     });
 
-    // 다운로드 버튼
-    downloadButton.addEventListener('click', handleDownload);
-
-    // 인쇄 버튼
-    printButton.addEventListener('click', handlePrint);
-
-    // 리셋 버튼
-    resetButton.addEventListener('click', handleReset);
-
     // 혼합 배치용 이벤트 리스너
     initializeMixedLayoutEventListeners();
 }
 
 function initializeMixedLayoutEventListeners() {
+    // 요소 존재 확인
+    if (!constructionUploadButton || !constructionFileInput) {
+        console.error('시공사진 업로드 요소를 찾을 수 없습니다.');
+        return;
+    }
+    
+    if (!documentUploadButton || !documentFileInput) {
+        console.error('대문사진 업로드 요소를 찾을 수 없습니다.');
+        return;
+    }
+
     // 시공사진 업로드
     constructionUploadButton.addEventListener('click', () => {
+        console.log('시공사진 버튼 클릭됨');
         constructionFileInput.click();
     });
 
@@ -127,43 +128,36 @@ function validateFile(file) {
     return true;
 }
 
-function handleDownload() {
-    if (currentFileId) {
-        const link = document.createElement('a');
-        link.href = `/download/${currentFileId}`;
-        link.download = `${currentFileId}.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        showSuccess('다운로드가 시작되었습니다.');
-    }
-}
+
 
 function handlePrint() {
-    if (!previewImage.src) {
-        showError('인쇄할 이미지가 없습니다.');
+    if (!currentLayoutData || !currentLayoutData.page_filenames) {
+        showError('인쇄할 레이아웃이 없습니다.');
         return;
     }
 
     // 인쇄 확인 대화상자
-    const constructionCount = constructionFiles.length;
-    const documentCount = documentFiles.length;
+    const totalPages = currentLayoutData.total_pages;
+    const constructionCount = currentLayoutData.construction_count;
+    const documentCount = currentLayoutData.document_count;
     const totalPhotos = constructionCount + documentCount;
     const orientation = currentPaperOrientation === 'portrait' ? '세로' : '가로';
     
     const confirmMessage = `
-🖨️ 인쇄 설정 확인
+🖨️ 다중 페이지 인쇄 확인
 
 📄 용지: A4 ${orientation}
+📋 페이지: 총 ${totalPages}페이지
 📷 사진: 총 ${totalPhotos}장 (시공사진: ${constructionCount}장, 대문사진: ${documentCount}장)
 🎯 품질: 300 DPI 고품질
 
-인쇄하시겠습니까?
+${totalPages}페이지를 모두 인쇄하시겠습니까?
 
 📌 인쇄 팁:
 • 용지 크기를 A4로 설정하세요
 • 여백을 "없음" 또는 "최소"로 설정하세요
 • 크기 조정을 "실제 크기" 또는 "100%"로 설정하세요
+• 양면 인쇄를 원하시면 프린터 설정에서 조정하세요
     `;
 
     if (!confirm(confirmMessage)) {
@@ -172,6 +166,18 @@ function handlePrint() {
 
     showProgress();
     
+    // 모든 페이지를 포함한 HTML 생성
+    let pagesHtml = '';
+    currentLayoutData.page_filenames.forEach((filename, index) => {
+        const pageBreak = index > 0 ? 'page-break-before: always;' : '';
+        pagesHtml += `
+            <div class="print-page" style="${pageBreak}">
+                <img src="/static/outputs/${filename}" class="print-image" alt="페이지 ${index + 1}" onload="checkImageLoad()">
+                <div class="print-info">페이지 ${index + 1}/${totalPages} | 생성일: ${new Date().toLocaleDateString('ko-KR')}</div>
+            </div>
+        `;
+    });
+    
     // 새 창에서 인쇄용 페이지 생성
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     printWindow.document.write(`
@@ -179,7 +185,7 @@ function handlePrint() {
         <html>
             <head>
                 <meta charset="UTF-8">
-                <title>사진 인쇄 - A4 ${orientation}</title>
+                <title>사진 인쇄 - ${totalPages}페이지 A4 ${orientation}</title>
                 <style>
                     @page {
                         size: A4 ${currentPaperOrientation};
@@ -196,14 +202,10 @@ function handlePrint() {
                         margin: 0;
                         padding: 0;
                         background: white;
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                        min-height: 100vh;
                         font-family: Arial, sans-serif;
                     }
                     
-                    .print-container {
+                    .print-page {
                         width: 100%;
                         height: 100vh;
                         display: flex;
@@ -211,6 +213,7 @@ function handlePrint() {
                         justify-content: center;
                         align-items: center;
                         padding: 10px;
+                        position: relative;
                     }
                     
                     .print-image {
@@ -235,7 +238,7 @@ function handlePrint() {
                             display: none;
                         }
                         
-                        .print-container {
+                        .print-page {
                             width: 100%;
                             height: 100vh;
                             padding: 0;
@@ -251,31 +254,42 @@ function handlePrint() {
                     @media screen {
                         body {
                             background: #f0f0f0;
+                            padding: 20px;
                         }
                         
-                        .print-container {
+                        .print-page {
                             background: white;
                             max-width: 210mm;
                             max-height: 297mm;
-                            margin: 20px auto;
+                            margin: 0 auto 20px auto;
                             box-shadow: 0 0 20px rgba(0,0,0,0.1);
                         }
                     }
                 </style>
             </head>
             <body>
-                <div class="print-container">
-                    <img src="${previewImage.src}" class="print-image" alt="A4 사진 배치">
-                    <div class="print-info">생성일: ${new Date().toLocaleDateString('ko-KR')} | ${totalPhotos}장 배치</div>
-                </div>
+                ${pagesHtml}
                 
                 <script>
-                    window.onload = function() {
-                        // 이미지 로드 후 3초 대기 후 인쇄 대화상자 열기
-                        setTimeout(function() {
+                    let loadedImages = 0;
+                    const totalImages = ${totalPages};
+                    
+                    function checkImageLoad() {
+                        loadedImages++;
+                        if (loadedImages >= totalImages) {
+                            // 모든 이미지 로드 완료 후 인쇄
+                            setTimeout(function() {
+                                window.print();
+                            }, 1000);
+                        }
+                    }
+                    
+                    // 대비책: 5초 후 강제 인쇄
+                    setTimeout(function() {
+                        if (loadedImages < totalImages) {
                             window.print();
-                        }, 1000);
-                    };
+                        }
+                    }, 5000);
                     
                     // 인쇄 완료 후 창 닫기
                     window.onafterprint = function() {
@@ -293,7 +307,7 @@ function handlePrint() {
     // 인쇄 창이 열린 후 진행바 숨기기
     setTimeout(() => {
         hideProgress();
-        showSuccess('인쇄 창이 열렸습니다. 프린터 설정을 확인하고 인쇄하세요.');
+        showSuccess(`${totalPages}페이지 인쇄 창이 열렸습니다. 프린터 설정을 확인하고 인쇄하세요.`);
     }, 1000);
 }
 
@@ -525,86 +539,126 @@ function handleMixedProcess() {
 }
 
 function handleMixedUploadSuccess(data) {
-    currentFileId = data.file_id;
+    currentLayoutData = data;
+    currentPageIndex = 0; // 첫 번째 페이지부터 시작
     
-    // 미리보기 이미지 설정
-    previewImage.src = `/static/outputs/${data.filename}`;
-    previewImage.onload = function() {
-        previewSection.style.display = 'block';
-        previewSection.scrollIntoView({ behavior: 'smooth' });
-    };
+    // 첫 번째 페이지 이미지 설정
+    updatePageDisplay();
     
     // 배치 정보 표시
-    const constructionCount = data.construction_count || constructionFiles.length;
-    const documentCount = data.document_count || documentFiles.length;
-    const totalPhotos = constructionCount + documentCount;
+    const constructionCount = data.construction_count || 0;  // 실제 배치된 개수
+    const documentCount = data.document_count || 0;  // 실제 배치된 개수
+    const uploadedConstruction = data.uploaded_construction || constructionFiles.length;  // 업로드한 개수
+    const uploadedDocument = data.uploaded_document || documentFiles.length;  // 업로드한 개수
+    
+    const totalPhotos = constructionCount + documentCount;  // 실제 배치된 총 개수
+    const totalUploaded = uploadedConstruction + uploadedDocument;  // 업로드한 총 개수
+    const totalPages = data.total_pages || 1; // 총 페이지 수
+    
     const orientation = currentPaperOrientation === 'portrait' ? '세로' : '가로';
     const paperSize = currentPaperOrientation === 'portrait' ? '21cm × 29.7cm' : '29.7cm × 21cm';
     
-    // 효율성 계산
-    const maxPossible = currentPaperOrientation === 'portrait' ? 8 : 10; // 대략적인 최대 가능 수
-    const efficiency = Math.round((totalPhotos / maxPossible) * 100);
+    // 효율성 계산 (페이지당 평균)
+    const avgPhotosPerPage = totalPhotos / totalPages;
+    const maxPerPage = currentPaperOrientation === 'portrait' ? 6 : 7; // 대략적인 페이지당 최대 가능 수
+    const efficiency = Math.round((avgPhotosPerPage / maxPerPage) * 100);
     
-    previewInfo.innerHTML = `
-        <div class="layout-summary">
-            <h3>📄 A4 ${orientation} 배치 완료!</h3>
-            
-            <div class="layout-stats">
-                <div class="stat-item">
-                    <span class="stat-icon">📷</span>
-                    <div class="stat-content">
-                        <div class="stat-number">${totalPhotos}</div>
-                        <div class="stat-label">총 사진</div>
-                    </div>
-                </div>
-                
-                <div class="stat-item">
-                    <span class="stat-icon">🏗️</span>
-                    <div class="stat-content">
-                        <div class="stat-number">${constructionCount}</div>
-                        <div class="stat-label">시공사진</div>
-                    </div>
-                </div>
-                
-                <div class="stat-item">
-                    <span class="stat-icon">📄</span>
-                    <div class="stat-content">
-                        <div class="stat-number">${documentCount}</div>
-                        <div class="stat-label">대문사진</div>
-                    </div>
-                </div>
-                
-                <div class="stat-item">
-                    <span class="stat-icon">⚡</span>
-                    <div class="stat-content">
-                        <div class="stat-number">${efficiency}%</div>
-                        <div class="stat-label">공간 효율성</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="layout-details">
-                <div class="detail-row">
-                    <span class="detail-label">📏 용지 크기:</span>
-                    <span class="detail-value">${paperSize}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">🖨️ 인쇄 품질:</span>
-                    <span class="detail-value">300 DPI (고품질)</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">📐 방향:</span>
-                    <span class="detail-value">${orientation} (${currentPaperOrientation})</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">📁 파일명:</span>
-                    <span class="detail-value">${data.filename}</span>
-                </div>
-            </div>
-        </div>
-    `;
+    // 배치 성공률 계산
+    const placementRate = totalUploaded > 0 ? Math.round((totalPhotos / totalUploaded) * 100) : 100;
     
-    showSuccess(`🎉 ${totalPhotos}장의 사진이 성공적으로 A4 용지에 배치되었습니다!`);
+    // 통계 카드 업데이트
+    document.getElementById('totalPhotosValue').textContent = totalPhotos;
+    document.getElementById('constructionCountValue').textContent = constructionCount;
+    document.getElementById('documentCountValue').textContent = documentCount;
+    document.getElementById('efficiencyValue').textContent = `${efficiency}%`;
+    
+    // 상세 정보 테이블 업데이트
+    document.getElementById('paperSizeValue').textContent = paperSize;
+    document.getElementById('orientationValue').textContent = orientation;
+    document.getElementById('pagesValue').textContent = `${totalPages}페이지`;
+    document.getElementById('qualityValue').textContent = '300 DPI (고품질)';
+    document.getElementById('layoutFilename').textContent = data.layout_id || 'mixed_layout';
+    
+    // 경고 메시지 표시 (모든 사진이 배치되지 않은 경우)
+    const warningElement = document.getElementById('placementWarning');
+    if (totalPhotos < totalUploaded) {
+        const notPlaced = totalUploaded - totalPhotos;
+        warningElement.innerHTML = `
+            <strong>⚠️ 주의:</strong> 업로드한 ${totalUploaded}장 중 ${totalPhotos}장만 배치되었습니다. 
+            ${notPlaced}장은 페이지 공간 부족으로 배치되지 않았습니다.
+            <br>더 많은 사진을 배치하려면 추가 페이지가 자동으로 생성됩니다.
+        `;
+        warningElement.style.display = 'block';
+    } else {
+        warningElement.innerHTML = `
+            <strong>✅ 완료:</strong> 업로드한 모든 ${totalUploaded}장의 사진이 ${totalPages}페이지에 성공적으로 배치되었습니다.
+        `;
+        warningElement.style.display = 'block';
+        warningElement.className = 'warning-message success';
+    }
+    
+    // 프린트 버튼 텍스트 업데이트
+    const printButton = document.getElementById('printButton');
+    if (totalPages > 1) {
+        printButton.textContent = `🖨️ ${totalPages}페이지 모두 인쇄`;
+    } else {
+        printButton.textContent = `🖨️ 인쇄하기`;
+    }
+    
+    // 미리보기 섹션 표시
+    previewSection.style.display = 'block';
+    previewSection.scrollIntoView({ behavior: 'smooth' });
+}
+
+// 페이지 표시 업데이트 함수
+function updatePageDisplay() {
+    if (!currentLayoutData || !currentLayoutData.page_filenames) return;
+    
+    const totalPages = currentLayoutData.total_pages;
+    const currentFilename = currentLayoutData.page_filenames[currentPageIndex];
+    
+    // 이미지 업데이트
+    previewImage.src = `/static/outputs/${currentFilename}`;
+    
+    // 페이지 정보 업데이트
+    document.getElementById('currentPageNumber').textContent = currentPageIndex + 1;
+    document.getElementById('totalPagesNumber').textContent = totalPages;
+    
+    // 네비게이션 버튼 상태 업데이트
+    document.getElementById('prevPageBtn').disabled = currentPageIndex === 0;
+    document.getElementById('nextPageBtn').disabled = currentPageIndex === totalPages - 1;
+    
+    // 페이지 네비게이션 표시
+    const pageNavigation = document.getElementById('pageNavigation');
+    if (totalPages > 1) {
+        pageNavigation.style.display = 'flex';
+    } else {
+        pageNavigation.style.display = 'none';
+    }
+}
+
+// 이전 페이지로 이동
+function goToPreviousPage() {
+    if (currentPageIndex > 0) {
+        currentPageIndex--;
+        updatePageDisplay();
+    }
+}
+
+// 다음 페이지로 이동
+function goToNextPage() {
+    if (currentLayoutData && currentPageIndex < currentLayoutData.total_pages - 1) {
+        currentPageIndex++;
+        updatePageDisplay();
+    }
+}
+
+// 특정 페이지로 이동
+function goToPage(pageNumber) {
+    if (currentLayoutData && pageNumber >= 1 && pageNumber <= currentLayoutData.total_pages) {
+        currentPageIndex = pageNumber - 1;
+        updatePageDisplay();
+    }
 }
 
 function handleMixedClear() {
