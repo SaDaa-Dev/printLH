@@ -140,25 +140,161 @@ function handleDownload() {
 }
 
 function handlePrint() {
-    if (previewImage.src) {
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`
-            <html>
-                <head>
-                    <title>사진 인쇄</title>
-                    <style>
-                        @page { margin: 0; }
-                        body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-                        img { max-width: 100%; max-height: 100vh; object-fit: contain; }
-                    </style>
-                </head>
-                <body>
-                    <img src="${previewImage.src}" onload="window.print(); window.close();">
-                </body>
-            </html>
-        `);
-        printWindow.document.close();
+    if (!previewImage.src) {
+        showError('인쇄할 이미지가 없습니다.');
+        return;
     }
+
+    // 인쇄 확인 대화상자
+    const constructionCount = constructionFiles.length;
+    const documentCount = documentFiles.length;
+    const totalPhotos = constructionCount + documentCount;
+    const orientation = currentPaperOrientation === 'portrait' ? '세로' : '가로';
+    
+    const confirmMessage = `
+🖨️ 인쇄 설정 확인
+
+📄 용지: A4 ${orientation}
+📷 사진: 총 ${totalPhotos}장 (시공사진: ${constructionCount}장, 대문사진: ${documentCount}장)
+🎯 품질: 300 DPI 고품질
+
+인쇄하시겠습니까?
+
+📌 인쇄 팁:
+• 용지 크기를 A4로 설정하세요
+• 여백을 "없음" 또는 "최소"로 설정하세요
+• 크기 조정을 "실제 크기" 또는 "100%"로 설정하세요
+    `;
+
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+
+    showProgress();
+    
+    // 새 창에서 인쇄용 페이지 생성
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>사진 인쇄 - A4 ${orientation}</title>
+                <style>
+                    @page {
+                        size: A4 ${currentPaperOrientation};
+                        margin: 0;
+                    }
+                    
+                    * {
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                    }
+                    
+                    body {
+                        margin: 0;
+                        padding: 0;
+                        background: white;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        min-height: 100vh;
+                        font-family: Arial, sans-serif;
+                    }
+                    
+                    .print-container {
+                        width: 100%;
+                        height: 100vh;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: center;
+                        align-items: center;
+                        padding: 10px;
+                    }
+                    
+                    .print-image {
+                        max-width: 100%;
+                        max-height: 95vh;
+                        object-fit: contain;
+                        box-shadow: none;
+                        border: none;
+                    }
+                    
+                    .print-info {
+                        position: absolute;
+                        bottom: 5px;
+                        right: 10px;
+                        font-size: 8px;
+                        color: #999;
+                        font-family: Arial, sans-serif;
+                    }
+                    
+                    @media print {
+                        .print-info {
+                            display: none;
+                        }
+                        
+                        .print-container {
+                            width: 100%;
+                            height: 100vh;
+                            padding: 0;
+                        }
+                        
+                        .print-image {
+                            max-width: 100%;
+                            max-height: 100vh;
+                            object-fit: contain;
+                        }
+                    }
+                    
+                    @media screen {
+                        body {
+                            background: #f0f0f0;
+                        }
+                        
+                        .print-container {
+                            background: white;
+                            max-width: 210mm;
+                            max-height: 297mm;
+                            margin: 20px auto;
+                            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+                        }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="print-container">
+                    <img src="${previewImage.src}" class="print-image" alt="A4 사진 배치">
+                    <div class="print-info">생성일: ${new Date().toLocaleDateString('ko-KR')} | ${totalPhotos}장 배치</div>
+                </div>
+                
+                <script>
+                    window.onload = function() {
+                        // 이미지 로드 후 3초 대기 후 인쇄 대화상자 열기
+                        setTimeout(function() {
+                            window.print();
+                        }, 1000);
+                    };
+                    
+                    // 인쇄 완료 후 창 닫기
+                    window.onafterprint = function() {
+                        setTimeout(function() {
+                            window.close();
+                        }, 1000);
+                    };
+                </script>
+            </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    
+    // 인쇄 창이 열린 후 진행바 숨기기
+    setTimeout(() => {
+        hideProgress();
+        showSuccess('인쇄 창이 열렸습니다. 프린터 설정을 확인하고 인쇄하세요.');
+    }, 1000);
 }
 
 function handleReset() {
@@ -399,17 +535,76 @@ function handleMixedUploadSuccess(data) {
     };
     
     // 배치 정보 표시
-    const constructionCount = constructionFiles.length;
-    const documentCount = documentFiles.length;
+    const constructionCount = data.construction_count || constructionFiles.length;
+    const documentCount = data.document_count || documentFiles.length;
+    const totalPhotos = constructionCount + documentCount;
     const orientation = currentPaperOrientation === 'portrait' ? '세로' : '가로';
+    const paperSize = currentPaperOrientation === 'portrait' ? '21cm × 29.7cm' : '29.7cm × 21cm';
+    
+    // 효율성 계산
+    const maxPossible = currentPaperOrientation === 'portrait' ? 8 : 10; // 대략적인 최대 가능 수
+    const efficiency = Math.round((totalPhotos / maxPossible) * 100);
     
     previewInfo.innerHTML = `
-        <strong>📄 A4 ${orientation} 배치 완료!</strong><br>
-        시공사진: ${constructionCount}장, 대문사진: ${documentCount}장<br>
-        <small>용지 크기: ${currentPaperOrientation === 'portrait' ? '21cm × 29.7cm' : '29.7cm × 21cm'}</small>
+        <div class="layout-summary">
+            <h3>📄 A4 ${orientation} 배치 완료!</h3>
+            
+            <div class="layout-stats">
+                <div class="stat-item">
+                    <span class="stat-icon">📷</span>
+                    <div class="stat-content">
+                        <div class="stat-number">${totalPhotos}</div>
+                        <div class="stat-label">총 사진</div>
+                    </div>
+                </div>
+                
+                <div class="stat-item">
+                    <span class="stat-icon">🏗️</span>
+                    <div class="stat-content">
+                        <div class="stat-number">${constructionCount}</div>
+                        <div class="stat-label">시공사진</div>
+                    </div>
+                </div>
+                
+                <div class="stat-item">
+                    <span class="stat-icon">📄</span>
+                    <div class="stat-content">
+                        <div class="stat-number">${documentCount}</div>
+                        <div class="stat-label">대문사진</div>
+                    </div>
+                </div>
+                
+                <div class="stat-item">
+                    <span class="stat-icon">⚡</span>
+                    <div class="stat-content">
+                        <div class="stat-number">${efficiency}%</div>
+                        <div class="stat-label">공간 효율성</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="layout-details">
+                <div class="detail-row">
+                    <span class="detail-label">📏 용지 크기:</span>
+                    <span class="detail-value">${paperSize}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">🖨️ 인쇄 품질:</span>
+                    <span class="detail-value">300 DPI (고품질)</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">📐 방향:</span>
+                    <span class="detail-value">${orientation} (${currentPaperOrientation})</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">📁 파일명:</span>
+                    <span class="detail-value">${data.filename}</span>
+                </div>
+            </div>
+        </div>
     `;
     
-    showSuccess('A4 배치가 완료되었습니다!');
+    showSuccess(`🎉 ${totalPhotos}장의 사진이 성공적으로 A4 용지에 배치되었습니다!`);
 }
 
 function handleMixedClear() {

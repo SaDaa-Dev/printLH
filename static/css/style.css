@@ -247,6 +247,89 @@ body {
     background: #c82333;
 }
 
+/* 혼합 배치용 파일 아이템 스타일 */
+.file-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 15px;
+    border: 2px solid #e1e8ed;
+    border-radius: 12px;
+    background: #f8f9ff;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.file-item:hover {
+    border-color: #667eea;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.file-preview {
+    width: 100px;
+    height: 100px;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.file-thumbnail {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.file-info {
+    text-align: center;
+    width: 100%;
+}
+
+.file-name {
+    font-size: 0.8rem;
+    color: #333;
+    font-weight: 500;
+    margin-bottom: 4px;
+    word-break: break-all;
+    line-height: 1.2;
+    max-height: 2.4em;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.file-size {
+    font-size: 0.7rem;
+    color: #666;
+}
+
+.file-remove {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #dc3545;
+    color: white;
+    border: none;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.file-remove:hover {
+    background: #c82333;
+    transform: scale(1.1);
+}
+
 .file-actions {
     display: flex;
     gap: 15px;
@@ -259,7 +342,7 @@ body {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 30px;
-    align-items: center;
+    align-items: flex-start;
 }
 
 .preview-image {
@@ -268,16 +351,108 @@ body {
     height: auto;
     border-radius: 12px;
     box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    transition: transform 0.3s ease;
+}
+
+.preview-image:hover {
+    transform: scale(1.02);
 }
 
 .preview-info {
-    text-align: center;
+    text-align: left;
 }
 
 .preview-info p {
     margin-bottom: 20px;
     font-size: 1.1rem;
     color: #2c3e50;
+}
+
+/* 배치 요약 스타일 */
+.layout-summary h3 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    font-size: 1.4rem;
+    text-align: center;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #667eea;
+}
+
+.layout-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px;
+    background: linear-gradient(135deg, #f8f9ff 0%, #e8f0fe 100%);
+    border-radius: 10px;
+    border: 1px solid #e1e8ed;
+    transition: all 0.3s ease;
+}
+
+.stat-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.stat-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.stat-content {
+    flex: 1;
+}
+
+.stat-number {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #667eea;
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    color: #666;
+    margin-top: 2px;
+}
+
+.layout-details {
+    background: #fff;
+    border: 1px solid #e1e8ed;
+    border-radius: 10px;
+    padding: 20px;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    font-weight: 500;
+    color: #2c3e50;
+    font-size: 0.9rem;
+}
+
+.detail-value {
+    color: #666;
+    font-size: 0.9rem;
+    text-align: right;
+    font-family: 'Courier New', monospace;
 }
 
 .preview-actions {
@@ -430,6 +605,28 @@ body {
         gap: 20px;
     }
     
+    .preview-info {
+        text-align: center;
+    }
+    
+    .layout-stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    .stat-item {
+        padding: 12px;
+        gap: 8px;
+    }
+    
+    .stat-number {
+        font-size: 1.5rem;
+    }
+    
+    .layout-details {
+        padding: 15px;
+    }
+    
     .info-grid {
         grid-template-columns: 1fr;
     }
@@ -481,6 +678,35 @@ body {
         height: 80px;
     }
     
+    /* 혼합 배치용 파일 아이템 모바일 스타일 */
+    .file-item {
+        padding: 8px;
+        min-height: 100px;
+    }
+
+    .file-preview {
+        width: 60px;
+        height: 60px;
+        margin-bottom: 6px;
+    }
+
+    .file-name {
+        font-size: 0.7rem;
+        max-height: 2.1em;
+    }
+
+    .file-size {
+        font-size: 0.6rem;
+    }
+
+    .file-remove {
+        width: 18px;
+        height: 18px;
+        font-size: 10px;
+        top: -4px;
+        right: -4px;
+    }
+    
     .file-actions {
         flex-direction: column;
         gap: 10px;
@@ -488,6 +714,46 @@ body {
     
     .file-actions .btn {
         width: 100%;
+    }
+    
+    /* 미리보기 모바일 스타일 */
+    .layout-stats {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .stat-item {
+        padding: 10px;
+        gap: 6px;
+    }
+    
+    .stat-number {
+        font-size: 1.3rem;
+    }
+    
+    .stat-label {
+        font-size: 0.75rem;
+    }
+    
+    .layout-details {
+        padding: 12px;
+    }
+    
+    .detail-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        padding: 6px 0;
+    }
+    
+    .detail-value {
+        text-align: left;
+        font-size: 0.8rem;
+    }
+    
+    .layout-summary h3 {
+        font-size: 1.2rem;
+        margin-bottom: 15px;
     }
 }
 
@@ -672,5 +938,11 @@ body {
     
     .mixed-upload-column h3 {
         font-size: 1rem;
+    }
+    
+    /* 혼합 배치용 파일 그리드 모바일 스타일 */
+    .selected-files-grid {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 8px;
     }
 } 

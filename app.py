@@ -832,8 +832,10 @@ def upload_optimized_files():
         file_id = str(uuid.uuid4())
         filename = f"mixed_layout_{paper_orientation}_{file_id}.png"
         
-        # 파일 저장
-        file_path = os.path.join(UPLOAD_FOLDER, filename)
+        # 파일 저장 (static/outputs 폴더에 저장)
+        outputs_folder = 'static/outputs'
+        os.makedirs(outputs_folder, exist_ok=True)
+        file_path = os.path.join(outputs_folder, filename)
         with open(file_path, 'wb') as f:
             f.write(img_buffer.getvalue())
         
