@@ -604,42 +604,42 @@ def arrange_multiple_document_photos(image_data_list, paper_orientation='portrai
         available_width = a4_width - 2 * margin
         available_height = a4_height - 2 * margin
         
+        # 대문사진 정확한 크기 (11.4cm × 15.2cm, 300 DPI 기준)
+        document_width_px = int(114 * 300 / 25.4)   # 약 1346픽셀 (11.4cm)
+        document_height_px = int(152 * 300 / 25.4)  # 약 1795픽셀 (15.2cm)
+        
         if paper_orientation == 'landscape':
             # 가로 모드: 나란히 배치
-            photo_width = (available_width - gap) // 2
-            photo_height = available_height
-            
             for i, image_data in enumerate(page_images):
                 if i < 2:  # 최대 2장
                     image = image_data['image']
                     
-                    # 비율 유지하면서 리사이징
-                    resized_image = resize_maintain_aspect_ratio(image, photo_width, photo_height)
+                    # 정확한 대문사진 크기로 리사이징 (11.4cm × 15.2cm)
+                    resized_image = resize_to_exact_size(image, document_width_px, document_height_px)
                     
-                    # 중앙 정렬로 배치
-                    img_width, img_height = resized_image.size
-                    x = margin + i * (photo_width + gap) + (photo_width - img_width) // 2
-                    y = margin + (photo_height - img_height) // 2
+                    # 배치 위치 계산 (가로 2장 나란히)
+                    spacing = (available_width - 2 * document_width_px) // 3  # 양쪽 여백 + 가운데 간격
+                    x = margin + spacing + i * (document_width_px + spacing)
+                    y = margin + (available_height - document_height_px) // 2  # 세로 중앙 정렬
                     
                     a4_image.paste(resized_image, (int(x), int(y)))
+                    resized_image.close()
         else:
             # 세로 모드: 위아래 배치
-            photo_width = available_width
-            photo_height = (available_height - gap) // 2
-            
             for i, image_data in enumerate(page_images):
                 if i < 2:  # 최대 2장
                     image = image_data['image']
                     
-                    # 비율 유지하면서 리사이징
-                    resized_image = resize_maintain_aspect_ratio(image, photo_width, photo_height)
+                    # 정확한 대문사진 크기로 리사이징 (11.4cm × 15.2cm)
+                    resized_image = resize_to_exact_size(image, document_width_px, document_height_px)
                     
-                    # 중앙 정렬로 배치
-                    img_width, img_height = resized_image.size
-                    x = margin + (photo_width - img_width) // 2
-                    y = margin + i * (photo_height + gap) + (photo_height - img_height) // 2
+                    # 배치 위치 계산 (세로 2장 위아래)
+                    spacing = (available_height - 2 * document_height_px) // 3  # 위아래 여백 + 가운데 간격
+                    x = margin + (available_width - document_width_px) // 2  # 가로 중앙 정렬
+                    y = margin + spacing + i * (document_height_px + spacing)
                     
                     a4_image.paste(resized_image, (int(x), int(y)))
+                    resized_image.close()
         
         pages.append(a4_image)
     
@@ -822,58 +822,145 @@ def create_optimized_mixed_layout(construction_images, document_images, paper_or
             placed_count = 0
             page_image = None
             
-            # 전략 1: 시공사진이 있으면 먼저 배치 (혼합 상황에서도 시공사진 우선)
+            # 전략 1: 시공사진이 있으면 먼저 배치하고, 남는 공간에 대문사진 추가
             if construction_count > 0:
-                print("🏗️ 시공사진 우선 배치 시도")
-                # 시공사진이 있으면 먼저 배치 (대문사진 유무와 관계없이)
-                construction_image_data = []
-                for photo in remaining_photos:
-                    if photo.photo_type == 'construction':
-                        # photo_id에서 실제 인덱스 추출 (예: "construction_3" -> 3)
-                        try:
-                            actual_index = int(photo.photo_id.split('_')[1])
-                            if actual_index < len(construction_images):
-                                img_data = construction_images[actual_index]
-                                image = Image.open(io.BytesIO(img_data))
-                                construction_image_data.append({
-                                    'image': image,
-                                    'filename': f'construction_{actual_index}.jpg'
-                                })
-                        except (ValueError, IndexError):
-                            print(f"Invalid photo_id format: {photo.photo_id}")
-                            continue
+                print("🏗️ 시공사진 우선 배치 + 남는 공간 활용 시도")
                 
-                if construction_image_data:
-                    # 가로/세로 방향에 따른 배치
-                    if paper_orientation == 'landscape':
-                        # 가로 A4: 5장 배치
+                # 가로/세로 방향에 따른 시공사진 최대 배치 수
+                if paper_orientation == 'landscape':
+                    max_construction_per_page = 5  # 가로 A4: 5장
+                else:
+                    max_construction_per_page = 4  # 세로 A4: 4장
+                
+                # 이번 페이지에 배치할 시공사진 수
+                construction_to_place = min(max_construction_per_page, construction_count)
+                
+                # 남는 공간이 있고 대문사진이 있으면 혼합 배치 시도
+                if construction_to_place < max_construction_per_page and document_count > 0:
+                    print(f"   🧩 혼합 배치 시도: 시공사진 {construction_to_place}장 + 대문사진 일부")
+                    # 2D 빈패킹으로 혼합 배치
+                    try:
                         a4_width, a4_height = cm_to_px(a4_width_cm), cm_to_px(a4_height_cm)
-                        result_pages = arrange_construction_photos_landscape(construction_image_data, a4_width, a4_height)
-                        placed_count = min(5, len(construction_image_data))
-                    else:
-                        # 세로 A4: 4장 배치
-                        a4_width, a4_height = cm_to_px(a4_width_cm), cm_to_px(a4_height_cm)
-                        result_pages = arrange_construction_photos_portrait(construction_image_data, a4_width, a4_height)
-                        placed_count = min(4, len(construction_image_data))
+                        packer = BinPacker(a4_width, a4_height, margin_cm=0.2)
+                        placed_count, placed_photos = packer.pack_photos(remaining_photos.copy())
+                        
+                        if placed_count > 0:
+                            page_image = create_optimized_layout_image(
+                                all_photos, placed_photos, paper_orientation,
+                                construction_images, document_images
+                            )
+                            
+                            # 배치 통계 업데이트
+                            placed_construction = sum(1 for p in placed_photos if p.photo_type == 'construction')
+                            placed_document = sum(1 for p in placed_photos if p.photo_type == 'document')
+                            
+                            total_construction_placed += placed_construction
+                            total_document_placed += placed_document
+                            
+                            print(f"   ✅ 혼합 배치 성공: 시공사진 {placed_construction}장 + 대문사진 {placed_document}장")
+                            
+                            # 배치된 사진들 제거
+                            placed_ids = {photo.photo_id for photo in placed_photos}
+                            remaining_photos = [p for p in remaining_photos if p.photo_id not in placed_ids]
+                    except Exception as e:
+                        print(f"   ⚠️ 혼합 배치 실패, 시공사진 단독 배치로 전환: {str(e)}")
+                        # 혼합 배치 실패시 시공사진만 배치
+                        construction_image_data = []
+                        construction_photos_used = 0
+                        for photo in remaining_photos:
+                            if photo.photo_type == 'construction' and construction_photos_used < construction_to_place:
+                                try:
+                                    actual_index = int(photo.photo_id.split('_')[1])
+                                    if actual_index < len(construction_images):
+                                        img_data = construction_images[actual_index]
+                                        image = Image.open(io.BytesIO(img_data))
+                                        construction_image_data.append({
+                                            'image': image,
+                                            'filename': f'construction_{actual_index}.jpg'
+                                        })
+                                        construction_photos_used += 1
+                                except (ValueError, IndexError):
+                                    continue
+                        
+                        if construction_image_data:
+                            a4_width, a4_height = cm_to_px(a4_width_cm), cm_to_px(a4_height_cm)
+                            if paper_orientation == 'landscape':
+                                result_pages = arrange_construction_photos_landscape(construction_image_data, a4_width, a4_height)
+                            else:
+                                result_pages = arrange_construction_photos_portrait(construction_image_data, a4_width, a4_height)
+                            
+                            if result_pages:
+                                page_image = result_pages[0]
+                                placed_count = construction_photos_used
+                                total_construction_placed += placed_count
+                                
+                                # 배치된 시공사진들 제거
+                                construction_photos_to_remove = []
+                                construction_removed = 0
+                                for photo in remaining_photos:
+                                    if photo.photo_type == 'construction' and construction_removed < construction_photos_used:
+                                        construction_photos_to_remove.append(photo.photo_id)
+                                        construction_removed += 1
+                                
+                                remaining_photos = [p for p in remaining_photos if p.photo_id not in construction_photos_to_remove]
+                            
+                            # 이미지 정리
+                            for img_data in construction_image_data:
+                                img_data['image'].close()
+                else:
+                    # 시공사진만으로 페이지가 가득 찬 경우
+                    print(f"   🏗️ 시공사진 단독 배치: {construction_to_place}장")
+                    construction_image_data = []
+                    construction_photos_used = 0
+                    for photo in remaining_photos:
+                        if photo.photo_type == 'construction' and construction_photos_used < construction_to_place:
+                            try:
+                                actual_index = int(photo.photo_id.split('_')[1])
+                                if actual_index < len(construction_images):
+                                    img_data = construction_images[actual_index]
+                                    image = Image.open(io.BytesIO(img_data))
+                                    construction_image_data.append({
+                                        'image': image,
+                                        'filename': f'construction_{actual_index}.jpg'
+                                    })
+                                    construction_photos_used += 1
+                            except (ValueError, IndexError):
+                                continue
                     
-                    if result_pages:
-                        page_image = result_pages[0]  # 첫 번째 페이지 사용
-                        total_construction_placed += placed_count
-                        # 배치된 시공사진들을 제거
-                        remaining_photos = remaining_photos[placed_count:]
+                    if construction_image_data:
+                        a4_width, a4_height = cm_to_px(a4_width_cm), cm_to_px(a4_height_cm)
+                        if paper_orientation == 'landscape':
+                            result_pages = arrange_construction_photos_landscape(construction_image_data, a4_width, a4_height)
+                        else:
+                            result_pages = arrange_construction_photos_portrait(construction_image_data, a4_width, a4_height)
+                        
+                        if result_pages:
+                            page_image = result_pages[0]
+                            placed_count = construction_photos_used
+                            total_construction_placed += placed_count
+                            
+                            # 배치된 시공사진들 제거
+                            construction_photos_to_remove = []
+                            construction_removed = 0
+                            for photo in remaining_photos:
+                                if photo.photo_type == 'construction' and construction_removed < construction_photos_used:
+                                    construction_photos_to_remove.append(photo.photo_id)
+                                    construction_removed += 1
+                            
+                            remaining_photos = [p for p in remaining_photos if p.photo_id not in construction_photos_to_remove]
                         
                         # 이미지 정리
                         for img_data in construction_image_data:
                             img_data['image'].close()
             
-            # 전략 2: 시공사진이 모두 처리된 후 대문사진 배치
+            # 전략 2: 시공사진이 없고 대문사진만 있는 경우
             elif document_count >= 1:
-                print("📄 대문사진 배치 시도")
+                print("📄 대문사진 전용 배치 시도")
                 # 대문사진 데이터 준비
                 document_image_data = []
                 for photo in remaining_photos:
                     if photo.photo_type == 'document':
-                        # photo_id에서 실제 인덱스 추출 (예: "document_2" -> 2)
+                        # photo_id에서 실제 인덱스 추출
                         try:
                             actual_index = int(photo.photo_id.split('_')[1])
                             if actual_index < len(document_images):
