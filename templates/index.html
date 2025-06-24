@@ -3,15 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>사진 리사이징 및 프린트 프로그램</title>
+    <title>Print LH</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="container">
         <header class="header">
-            <h1>📸 사진 리사이징 및 프린트</h1>
-            <p>A4 용지에 맞게 사진을 자동으로 리사이징해드립니다</p>
+            <h1>📸 프린팅 LH</h1>
         </header>
 
         <main class="main-content">
@@ -20,18 +19,18 @@
                 <h2>📄 용지 방향 선택</h2>
                 <div class="radio-group">
                     <label class="radio-option">
-                        <input type="radio" name="paper_orientation" value="portrait" checked>
+                        <input type="radio" name="paper_orientation" value="portrait">
                         <span class="radio-custom"></span>
                         <div class="radio-content">
-                            <strong>📱 세로 (Portrait)</strong>
+                            <strong>📱 세로 </strong>
                             <small>21cm × 29.7cm - 일반적인 A4 방향</small>
                         </div>
                     </label>
                     <label class="radio-option">
-                        <input type="radio" name="paper_orientation" value="landscape">
+                        <input type="radio" name="paper_orientation" value="landscape" checked>
                         <span class="radio-custom"></span>
                         <div class="radio-content">
-                            <strong>🖥️ 가로 (Landscape)</strong>
+                            <strong>🖥️ 가로 </strong>
                             <small>29.7cm × 21cm - 가로로 회전된 A4</small>
                         </div>
                     </label>
@@ -41,13 +40,9 @@
             <!-- 파일 업로드 (혼합 배치) -->
             <section class="section" id="mixedUploadSection">
                 <h2>📁 사진 업로드</h2>
-                <p style="text-align: center; color: #666; margin-bottom: 20px;">
-                    시공사진과 대문사진을 A4 용지에 최적으로 배치해드립니다
-                </p>
                 <div class="mixed-upload-container">
                     <div class="mixed-upload-column">
                         <h3>🏗️ 시공사진 (9cm × 11cm)</h3>
-                        <p style="font-size: 14px; color: #666; margin-bottom: 10px;">최대 6장까지 배치 가능</p>
                         <div class="upload-area" id="constructionUploadArea">
                             <div class="upload-content">
                                 <div class="upload-icon">🏗️</div>
@@ -61,7 +56,6 @@
                     
                     <div class="mixed-upload-column">
                         <h3>📄 대문사진 (11.4cm × 15.2cm)</h3>
-                        <p style="font-size: 14px; color: #666; margin-bottom: 10px;">최대 2장까지 배치 가능</p>
                         <div class="upload-area" id="documentUploadArea">
                             <div class="upload-content">
                                 <div class="upload-icon">📄</div>
@@ -223,10 +217,6 @@
                 </div>
             </section>
         </main>
-
-        <footer class="footer">
-            <p>© 2024 사진 리사이징 프로그램 | 모든 기기에서 사용 가능</p>
-        </footer>
     </div>
 
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>

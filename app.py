@@ -10,7 +10,7 @@ import time
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max file size (압축 전 원본 고려)
 app.config['UPLOAD_FOLDER'] = 'temp_uploads'
 app.config['PROCESSED_FOLDER'] = 'temp_processed'
 
@@ -826,11 +826,11 @@ def create_optimized_mixed_layout(construction_images, document_images, paper_or
             if construction_count > 0:
                 print("🏗️ 시공사진 우선 배치 + 남는 공간 활용 시도")
                 
-                # 가로/세로 방향에 따른 시공사진 최대 배치 수
-                if paper_orientation == 'landscape':
-                    max_construction_per_page = 5  # 가로 A4: 5장
-                else:
-                    max_construction_per_page = 4  # 세로 A4: 4장
+                # 효율성을 위해 항상 가로 방향 로직 사용 (5장 배치)
+                # 세로 방향 선택시에도 가로 로직으로 배치 후 마지막에 회전
+                max_construction_per_page = 5  # 항상 5장 배치
+                
+                print(f"   📐 배치 방향: {'가로 (원본)' if paper_orientation == 'landscape' else '가로 로직 → 세로 회전'}")
                 
                 # 이번 페이지에 배치할 시공사진 수
                 construction_to_place = min(max_construction_per_page, construction_count)
@@ -838,15 +838,15 @@ def create_optimized_mixed_layout(construction_images, document_images, paper_or
                 # 남는 공간이 있고 대문사진이 있으면 혼합 배치 시도
                 if construction_to_place < max_construction_per_page and document_count > 0:
                     print(f"   🧩 혼합 배치 시도: 시공사진 {construction_to_place}장 + 대문사진 일부")
-                    # 2D 빈패킹으로 혼합 배치
+                    # 2D 빈패킹으로 혼합 배치 (항상 가로 방향 크기 사용)
                     try:
-                        a4_width, a4_height = cm_to_px(a4_width_cm), cm_to_px(a4_height_cm)
+                        a4_width, a4_height = cm_to_px(29.7), cm_to_px(21.0)  # 항상 가로 A4 크기 사용
                         packer = BinPacker(a4_width, a4_height, margin_cm=0.2)
                         placed_count, placed_photos = packer.pack_photos(remaining_photos.copy())
                         
                         if placed_count > 0:
                             page_image = create_optimized_layout_image(
-                                all_photos, placed_photos, paper_orientation,
+                                all_photos, placed_photos, 'landscape',  # 항상 가로 방향으로 생성
                                 construction_images, document_images
                             )
                             
@@ -883,11 +883,8 @@ def create_optimized_mixed_layout(construction_images, document_images, paper_or
                                     continue
                         
                         if construction_image_data:
-                            a4_width, a4_height = cm_to_px(a4_width_cm), cm_to_px(a4_height_cm)
-                            if paper_orientation == 'landscape':
-                                result_pages = arrange_construction_photos_landscape(construction_image_data, a4_width, a4_height)
-                            else:
-                                result_pages = arrange_construction_photos_portrait(construction_image_data, a4_width, a4_height)
+                            a4_width, a4_height = cm_to_px(29.7), cm_to_px(21.0)  # 항상 가로 A4 크기 사용
+                            result_pages = arrange_construction_photos_landscape(construction_image_data, a4_width, a4_height)  # 항상 가로 로직 사용
                             
                             if result_pages:
                                 page_image = result_pages[0]
@@ -928,11 +925,8 @@ def create_optimized_mixed_layout(construction_images, document_images, paper_or
                                 continue
                     
                     if construction_image_data:
-                        a4_width, a4_height = cm_to_px(a4_width_cm), cm_to_px(a4_height_cm)
-                        if paper_orientation == 'landscape':
-                            result_pages = arrange_construction_photos_landscape(construction_image_data, a4_width, a4_height)
-                        else:
-                            result_pages = arrange_construction_photos_portrait(construction_image_data, a4_width, a4_height)
+                        a4_width, a4_height = cm_to_px(29.7), cm_to_px(21.0)  # 항상 가로 A4 크기 사용
+                        result_pages = arrange_construction_photos_landscape(construction_image_data, a4_width, a4_height)  # 항상 가로 로직 사용
                         
                         if result_pages:
                             page_image = result_pages[0]
@@ -975,9 +969,8 @@ def create_optimized_mixed_layout(construction_images, document_images, paper_or
                             continue
                 
                 if document_image_data:
-                    # 가로/세로 방향에 따른 배치 (대문사진은 보통 2장씩)
-                    a4_width, a4_height = cm_to_px(a4_width_cm), cm_to_px(a4_height_cm)
-                    result_pages = arrange_multiple_document_photos(document_image_data, paper_orientation)
+                    # 대문사진도 항상 가로 로직으로 배치 (2장씩)
+                    result_pages = arrange_multiple_document_photos(document_image_data, 'landscape')
                     placed_count = min(2, len(document_image_data))  # 대문사진은 최대 2장
                     
                     if result_pages:
@@ -991,11 +984,11 @@ def create_optimized_mixed_layout(construction_images, document_images, paper_or
                             img_data['image'].close()
                 
             else:
-                # 전략 3: 혼합 배치는 2D 빈패킹 사용
+                # 전략 3: 혼합 배치는 2D 빈패킹 사용 (항상 가로 방향)
                 print("🧩 2D 빈패킹 혼합 배치 시도")
                 packer = BinPacker(
-                    cm_to_px(a4_width_cm), 
-                    cm_to_px(a4_height_cm), 
+                    cm_to_px(29.7),  # 항상 가로 A4 너비
+                    cm_to_px(21.0),  # 항상 가로 A4 높이
                     margin_cm=0.2
                 )
                 
@@ -1006,7 +999,7 @@ def create_optimized_mixed_layout(construction_images, document_images, paper_or
                     break
                 
                 page_image = create_optimized_layout_image(
-                    all_photos, placed_photos, paper_orientation,
+                    all_photos, placed_photos, 'landscape',  # 항상 가로 방향으로 생성
                     construction_images, document_images
                 )
                 
@@ -1022,6 +1015,13 @@ def create_optimized_mixed_layout(construction_images, document_images, paper_or
                 remaining_photos = [p for p in remaining_photos if p.photo_id not in placed_ids]
             
             if placed_count > 0 and page_image is not None:
+                # 세로 방향 선택시 90도 회전 (시계 반대 방향)
+                if paper_orientation == 'portrait':
+                    print(f"   🔄 세로 방향 변환: 90도 회전 적용")
+                    rotated_page = page_image.rotate(90, expand=True)
+                    page_image.close()  # 원본 이미지 메모리 해제
+                    page_image = rotated_page
+                
                 pages.append(page_image)
                 print(f"페이지 {page_num} 완성 - {placed_count}장 배치됨")
                 page_num += 1
@@ -1082,8 +1082,8 @@ def upload_optimized_files():
             if file and file.filename != '' and allowed_file(file.filename):
                 try:
                     file_data = file.read()
-                    # 파일 크기 체크 (메모리 보호)
-                    if len(file_data) > 10 * 1024 * 1024:  # 10MB 제한
+                    # 파일 크기 체크 (압축된 파일 기준)
+                    if len(file_data) > 20 * 1024 * 1024:  # 20MB 제한 (압축된 파일 기준)
                         print(f"파일 크기 초과: {file.filename}")
                         continue
                     construction_images.append(file_data)
@@ -1096,8 +1096,8 @@ def upload_optimized_files():
             if file and file.filename != '' and allowed_file(file.filename):
                 try:
                     file_data = file.read()
-                    # 파일 크기 체크 (메모리 보호)
-                    if len(file_data) > 10 * 1024 * 1024:  # 10MB 제한
+                    # 파일 크기 체크 (압축된 파일 기준)
+                    if len(file_data) > 20 * 1024 * 1024:  # 20MB 제한 (압축된 파일 기준)
                         print(f"파일 크기 초과: {file.filename}")
                         continue
                     document_images.append(file_data)

@@ -112,9 +112,9 @@ function updatePaperOrientationSelection() {
 }
 
 function validateFile(file) {
-    // 파일 크기 체크 (16MB)
-    if (file.size > 16 * 1024 * 1024) {
-        showError(`파일 "${file.name}"이 너무 큽니다. 최대 16MB까지 지원됩니다.`);
+    // 파일 크기 체크 (50MB - 압축 전 원본 기준)
+    if (file.size > 50 * 1024 * 1024) {
+        showError(`파일 "${file.name}"이 너무 큽니다. 최대 50MB까지 지원됩니다.`);
         return false;
     }
 
@@ -126,6 +126,56 @@ function validateFile(file) {
     }
 
     return true;
+}
+
+// 이미지 압축 함수
+function compressImage(file, maxWidth = 2000, maxHeight = 2000, quality = 0.8) {
+    return new Promise((resolve, reject) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        
+        img.onload = function() {
+            // 원본 크기
+            let { width, height } = img;
+            
+            // 비율 유지하면서 최대 크기 제한
+            if (width > maxWidth || height > maxHeight) {
+                const ratio = Math.min(maxWidth / width, maxHeight / height);
+                width *= ratio;
+                height *= ratio;
+            }
+            
+            // 캔버스 크기 설정
+            canvas.width = width;
+            canvas.height = height;
+            
+            // 이미지 그리기
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // JPEG로 압축하여 Blob 생성
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    // 원본 파일명 유지하면서 새 파일 객체 생성
+                    const compressedFile = new File([blob], file.name, {
+                        type: 'image/jpeg',
+                        lastModified: Date.now()
+                    });
+                    
+                    const compressionRatio = ((file.size - compressedFile.size) / file.size * 100).toFixed(1);
+                    console.log(`이미지 압축 완료: ${file.name}`);
+                    console.log(`원본: ${(file.size / 1024 / 1024).toFixed(2)}MB → 압축: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB (${compressionRatio}% 절약)`);
+                    
+                    resolve(compressedFile);
+                } else {
+                    reject(new Error('이미지 압축 실패'));
+                }
+            }, 'image/jpeg', quality);
+        };
+        
+        img.onerror = () => reject(new Error('이미지 로드 실패'));
+        img.src = URL.createObjectURL(file);
+    });
 }
 
 
@@ -442,19 +492,58 @@ function handleMixedDrop(event, type) {
     }
 }
 
-function addMixedFilesToSelection(files, type) {
+async function addMixedFilesToSelection(files, type) {
     const validFiles = files.filter(validateFile);
     
     if (validFiles.length === 0) return;
 
-    if (type === 'construction') {
-        constructionFiles = [...constructionFiles, ...validFiles];
-    } else {
-        documentFiles = [...documentFiles, ...validFiles];
-    }
+    // 압축 진행 표시
+    showProgress();
+    const progressText = document.getElementById('progressText');
+    
+    try {
+        const compressedFiles = [];
+        
+        for (let i = 0; i < validFiles.length; i++) {
+            const file = validFiles[i];
+            progressText.textContent = `이미지 압축 중... (${i + 1}/${validFiles.length})`;
+            
+            try {
+                // 이미지 압축 적용
+                const compressedFile = await compressImage(file, 2000, 2000, 0.8);
+                compressedFiles.push(compressedFile);
+            } catch (error) {
+                console.warn(`${file.name} 압축 실패, 원본 사용:`, error);
+                // 압축 실패시 원본 파일 사용
+                compressedFiles.push(file);
+            }
+        }
+        
+        // 압축된 파일들을 배열에 추가
+        if (type === 'construction') {
+            constructionFiles = [...constructionFiles, ...compressedFiles];
+        } else {
+            documentFiles = [...documentFiles, ...compressedFiles];
+        }
 
-    updateMixedFilesDisplay();
-    showSuccess(`${validFiles.length}개의 ${type === 'construction' ? '시공사진' : '대문사진'}이 추가되었습니다.`);
+        updateMixedFilesDisplay();
+        
+        // 압축 결과 메시지
+        const originalSize = validFiles.reduce((sum, file) => sum + file.size, 0);
+        const compressedSize = compressedFiles.reduce((sum, file) => sum + file.size, 0);
+        const savedPercent = ((originalSize - compressedSize) / originalSize * 100).toFixed(1);
+        
+        showSuccess(
+            `${validFiles.length}개의 ${type === 'construction' ? '시공사진' : '대문사진'}이 추가되었습니다.\n` +
+            `압축률: ${savedPercent}% 절약 (${(originalSize / 1024 / 1024).toFixed(1)}MB → ${(compressedSize / 1024 / 1024).toFixed(1)}MB)`
+        );
+        
+    } catch (error) {
+        console.error('파일 처리 중 오류:', error);
+        showError('파일 처리 중 오류가 발생했습니다.');
+    } finally {
+        hideProgress();
+    }
 }
 
 function updateMixedFilesDisplay() {
